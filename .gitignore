@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables & Secrets
+.env
+
+# Telethon session files (IMPORTANT: Never commit your Telegram login session!)
+*.session
+*.session-journal
+
+# macOS
+.DS_Store
