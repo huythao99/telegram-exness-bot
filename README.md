@@ -1,36 +1,45 @@
-# Telegram -> Exness MT5 Grid Copier (macOS)
+# Telegram -> Exness Trader API Copier (macOS)
 
-Bot tự động đọc tín hiệu Vàng (`XAUUSD`) từ Group/Channel Telegram và đặt lệnh vào tài khoản **Exness MT5** trên máy Mac.
+Bot tự động đọc tín hiệu Vàng (`XAUUSD`) từ Group/Channel Telegram và đặt lệnh **trực tiếp qua Exness Trader API** (REST, ký Ed25519).
 
 ## Quy tắc giao dịch của Bot
-1. **Rải 10 lệnh tự động theo vùng giá (SL 10 giá, TP 10 giá cho tất cả các lệnh):**
+1. **Đặt 2 lệnh tại 2 điểm giá trong tin nhắn:**
    - Nhận tin nhắn dạng:
      ```text
      Sell vàng 3776-3778
      Sl 3788
      Tp 100 150pip
      ```
-   - Tự động chia đều **10 lệnh** (mỗi lệnh `0.01` lot) từ `3776.00` đến `3778.00`.
-   - **SL cố định = 10 giá (`100 pips`)** và **TP cố định = 10 giá (`100 pips`)** tính từ mức giá vào của từng lệnh (bỏ qua SL/TP ghi trong tin nhắn):
-     - VD với lệnh **SELL**:
-       - Lệnh #1 tại `3776.00` $\rightarrow$ `SL = 3786.00`, `TP = 3766.00`
-       - Lệnh #10 tại `3778.00` $\rightarrow$ `SL = 3788.00`, `TP = 3768.00`
-     - VD với lệnh **BUY**:
-       - Lệnh #1 tại `3776.00` $\rightarrow$ `SL = 3766.00`, `TP = 3786.00`
-       - Lệnh #10 tại `3778.00` $\rightarrow$ `SL = 3768.00`, `TP = 3788.00`
-2. **Khi có tin báo lãi `Vàng +(x)pip` (Chốt 50% số lệnh + Dời SL về mốc đầu vùng):**
-   - Nhận tin nhắn dạng: `Vàng +40pip💰💰` (hoặc từ khóa `chốt nửa`, `chốt 1/2`, `chốt 50%`).
-   - Tự động hủy các lệnh chờ Limit chưa khớp, **đóng 50% số lệnh đang mở** (VD: 10 lệnh $\rightarrow$ đóng 5 lệnh).
-   - **50% số lệnh còn lại:** Tự động **dời SL của tất cả các lệnh còn lại về cùng 1 mốc**:
-     - Nếu là lệnh **BUY `3776-3778`** $\rightarrow$ Dời SL tất cả về **`3778.00`**
-     - Nếu là lệnh **SELL `3776-3778`** $\rightarrow$ Dời SL tất cả về **`3776.00`**
-     - Sau đó gồng tới khi chạm **TP 10 giá (100 pips)**.
+   - Bot đặt **1 lệnh tại `3776.00`** và **1 lệnh tại `3778.00`** (mỗi lệnh `LOT_PER_ORDER`, mặc định `0.01`). Nếu tin chỉ có 1 giá thì đặt 2 lệnh cùng giá đó.
+   - Nếu giá hiện tại đã chạm/vượt điểm vào (trong `MARKET_TOLERANCE`) thì vào Market ngay, ngược lại đặt lệnh chờ Limit.
+   - **SL cố định = 10 giá** và **TP cố định = 10 giá** tính từ giá vào của từng lệnh (bỏ qua SL/TP ghi trong tin nhắn):
+     - **SELL**: `3776 → SL 3786 / TP 3766`, `3778 → SL 3788 / TP 3768`
+     - **BUY**:  `3776 → SL 3766 / TP 3786`, `3778 → SL 3768 / TP 3788`
+2. **Khi có tin báo lãi `Vàng +(x)pip`** (hoặc `chốt nửa`, `chốt 1/2`, `chốt 50%`):
+   - Hủy lệnh chờ chưa khớp, **đóng 50% số lệnh đang mở** (2 lệnh → đóng 1).
+   - Lệnh còn lại được **dời SL** về: BUY `3776-3778` → `3778.00`, SELL `3776-3778` → `3776.00`.
 
----
+## Cài đặt
+```bash
+pip3 install -r requirements.txt
+cp .env.example .env     # điền thông tin Telegram + Exness API
+python3 list_chats.py    # lấy CHAT_ID
+python3 exness_probe.py  # kiểm tra kết nối Exness API (không đặt lệnh)
+python3 telegram_bot.py  # chạy bot (mặc định DRY_RUN=true)
+```
+
+Khi đã thấy lệnh in ra đúng ở chế độ thử, đổi `DRY_RUN=false` trong `.env` để đặt lệnh thật.
+
+## Đối chiếu tên trường API
+Đường dẫn API và cách ký request theo tài liệu công khai của Exness. Một số tên trường JSON trong body lệnh (đánh dấu `VERIFY` trong `exness_client.py`, ví dụ `side`, `type`, `price`) cần đối chiếu với spec chính thức: <https://www.exness-api.com/openapi/trading.public.yaml>. Nếu khác, tạo file `exness_schema.json` cạnh code để ghi đè, ví dụ:
+```json
+{ "b_instrument": "symbol", "side_buy": "BUY", "side_sell": "SELL" }
+```
 
 ## Cấu trúc thư mục
-- `telegram_bot.py`: Script chính lắng nghe Telegram và gửi lệnh sang MT5.
-- `signal_parser.py`: Bộ phân tích cú pháp tin nhắn, chia lưới 10 lệnh với SL 10 giá & TP 10 giá.
-- `list_chats.py`: Công cụ lấy `CHAT_ID` của các Group/Channel trong tài khoản Telegram.
-- `test_parser.py`: Script kiểm tra nhanh bộ lọc tin nhắn.
-- `mql5/TelegramGridCopier.mq5`: Expert Advisor (EA) chạy trên phần mềm MT5 Mac.
+- `telegram_bot.py`: Script chính, lắng nghe Telegram và gọi Exness API.
+- `exness_client.py`: Client Exness Trader API (ký request, đặt/đóng/hủy lệnh, dời SL).
+- `exness_probe.py`: Kiểm tra kết nối và in dữ liệu thô từ tài khoản.
+- `signal_parser.py`: Phân tích tin nhắn và tạo 2 lệnh tại 2 điểm giá.
+- `list_chats.py`: Lấy `CHAT_ID` của các Group/Channel.
+- `test_parser.py`: Kiểm tra nhanh bộ phân tích tin nhắn.

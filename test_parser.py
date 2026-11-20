@@ -3,7 +3,6 @@ from signal_parser import SignalParser
 
 def run_tests():
     parser = SignalParser(
-        grid_count=10,
         lot_per_order=0.01,
         fixed_sl_distance=10.0,
         fixed_tp_distance=10.0,
@@ -18,6 +17,7 @@ Tp 100 150pip""",
         """Buy vàng 3776-3778
 Sl 3788
 Tp 100 150pip""",
+        """Buy vàng 3780""",
         """Vàng +40pip💰💰""",
     ]
 
@@ -28,10 +28,11 @@ Tp 100 150pip""",
         print("-> Kết quả parse:")
         print(f"   Loại lệnh       : {res['type']}")
         if res["type"] == "OPEN":
+            assert len(res["orders"]) == 2
             print(f"   Mốc dời SL (+40p): {res['be_sl_price']}")
-            print(f"   Lệnh đầu #1     : {res['orders'][0]}")
-            print(f"   Lệnh cuối #10   : {res['orders'][-1]}")
-        print(f"   MT5 Command     : {res['mt5_command']}\n")
+            for i, o in enumerate(res["orders"], 1):
+                print(f"   Lệnh #{i}         : {o}")
+        print()
 
 
 if __name__ == "__main__":
